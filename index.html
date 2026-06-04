@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Termination Checklist</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --navy:     #0f172a; --navy-mid: #1e293b; --slate: #475569; --slate-lt: #94a3b8;
+      --border:   #d4cdc4; --border-dk:#c2b9b0; --bg: #e8e3dc;    --white: #f4f0eb;
+      --hr:       #059669; --hr-lt:   #ecfdf5;  --hr-bd:  #a7f3d0;
+      --mgr:      #d97706; --mgr-lt:  #fffbeb;  --mgr-bd: #fde68a;
+      --it:       #2563eb; --it-lt:   #eff6ff;  --it-bd:  #bfdbfe;
+      --crit:     #dc2626; --crit-bg: #fff1f2;  --crit-bd:#fecdd3;
+      --success:  #16a34a;
+      --ff-disp:  'Syne', system-ui, sans-serif;
+      --ff-body:  'IBM Plex Sans', system-ui, sans-serif;
+      --ff-mono:  'IBM Plex Mono', monospace;
+    }
+    html { font-size: 18px; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--ff-body); background: var(--bg); color: var(--navy); font-size: 15px; }
+
+    /* ── VIEWS ── */
+    .view { display: none; min-height: 100vh; }
+    .view.active { display: block; }
+
+    /* ── CONFIG BANNER ── */
+    #config-banner {
+      display: none; background: #fef3c7; border-bottom: 2px solid #fde68a;
+      padding: 10px 24px; font-family: var(--ff-mono); font-size: .75rem; color: #92400e;
+    }
+    #config-banner code { background: #fde68a; padding: 1px 5px; border-radius: 3px; }
+
+    /* ── AUTH (Login + Reset) ── */
+    .auth-bg {
+      min-height: 100vh; background: var(--navy); display: flex;
+      align-items: center; justify-content: center; padding: 40px 20px;
+      background-image: linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+      background-size: 44px 44px;
+    }
+    .auth-card {
+      background: var(--white); border-radius: 10px; padding: 36px 40px;
+      width: 100%; max-width: 400px; box-shadow: 0 24px 60px rgba(0,0,0,.45);
+    }
+    .auth-logo { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; }
+    .auth-logo-icon {
+      background: var(--navy); color: white; width: 46px; height: 46px;
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem; flex-shrink: 0;
+    }
+    .auth-app-title { font-family: var(--ff-disp); font-size: 1rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+    .auth-app-sub { font-family: var(--ff-mono); font-size: .62rem; color: var(--slate-lt); margin-top: 2px; }
+    .auth-error { background: var(--crit-bg); border: 1px solid var(--crit-bd); color: var(--crit); font-family: var(--ff-mono); font-size: .75rem; padding: 8px 12px; border-radius: 4px; margin-bottom: 14px; }
+    .auth-info  { background: var(--it-lt);   border: 1px solid var(--it-bd);   color: var(--it);   font-family: var(--ff-mono); font-size: .75rem; padding: 8px 12px; border-radius: 4px; margin-bottom: 14px; }
+    .auth-btn {
+      margin-top: 20px; width: 100%; padding: 11px; background: var(--navy); color: white;
+      border: none; border-radius: 5px; font-family: var(--ff-disp); font-size: .9rem;
+      font-weight: 700; letter-spacing: .04em; cursor: pointer; transition: background .15s;
+    }
+    .auth-btn:hover { background: #1e293b; }
+    .auth-btn:disabled { background: var(--slate-lt); cursor: not-allowed; }
+    .auth-link-btn { display: block; text-align: center; margin-top: 12px; font-family: var(--ff-mono); font-size: .7rem; color: var(--slate-lt); background: none; border: none; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+    .auth-link-btn:hover { color: var(--slate); }
+
+    /* ── SHARED: APP HEADER ── */
+    .app-hdr {
+      background: var(--navy); color: white; padding: 14px 28px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 200; box-shadow: 0 2px 16px rgba(0,0,0,.3);
+    }
+    .hdr-left  { display: flex; align-items: center; gap: 14px; }
+    .hdr-right { display: flex; align-items: center; gap: 14px; }
+    .hdr-brand .hdr-title { font-family: var(--ff-disp); font-weight: 800; font-size: 1rem; letter-spacing: .05em; text-transform: uppercase; }
+    .hdr-brand .hdr-sub   { font-family: var(--ff-mono); font-size: .62rem; color: var(--slate-lt); margin-top: 1px; }
+    .hdr-back { font-family: var(--ff-mono); font-size: .7rem; color: rgba(255,255,255,.6); background: none; border: 1px solid rgba(255,255,255,.15); padding: 5px 10px; border-radius: 4px; cursor: pointer; transition: all .15s; }
+    .hdr-back:hover { border-color: rgba(255,255,255,.4); color: white; }
+    .user-email { font-family: var(--ff-mono); font-size: .68rem; color: var(--slate-lt); }
+
+    /* ── SHARED: BUTTONS ── */
+    .btn { font-family: var(--ff-mono); font-size: .68rem; padding: 5px 13px; border-radius: 4px; border: 1px solid; cursor: pointer; letter-spacing: .03em; transition: all .15s; white-space: nowrap; }
+    .btn-ghost  { background: transparent; border-color: rgba(255,255,255,.2); color: rgba(255,255,255,.65); }
+    .btn-ghost:hover { border-color: rgba(255,255,255,.5); color: white; }
+    .btn-primary { background: var(--it); border-color: var(--it); color: white; font-size: .78rem; padding: 7px 16px; }
+    .btn-primary:hover { background: #1d4ed8; }
+
+    /* ── SHARED: FORM FIELDS ── */
+    .fld { display: flex; flex-direction: column; gap: 4px; }
+    .fld-lbl { font-family: var(--ff-mono); font-size: .6rem; letter-spacing: .09em; text-transform: uppercase; color: var(--slate-lt); }
+    .fld-inp { font-family: var(--ff-body); font-size: .855rem; padding: 7px 10px; border: 1px solid var(--border-dk); border-radius: 4px; color: var(--navy); background: var(--bg); outline: none; transition: border-color .15s, background .15s; width: 100%; }
+    .fld-inp:focus { border-color: #60a5fa; background: #fdf9f5; }
+    select.fld-inp { cursor: pointer; }
+
+    /* ── DASHBOARD ── */
+    .dash-toolbar { background: var(--navy-mid); padding: 10px 28px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .filter-tabs { display: flex; gap: 4px; }
+    .filter-tab { font-family: var(--ff-mono); font-size: .68rem; padding: 5px 12px; border-radius: 4px; border: 1px solid rgba(255,255,255,.12); background: transparent; color: rgba(255,255,255,.5); cursor: pointer; transition: all .15s; }
+    .filter-tab:hover { border-color: rgba(255,255,255,.3); color: rgba(255,255,255,.8); }
+    .filter-tab.active { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.3); color: white; }
+    .search-inp { font-family: var(--ff-mono); font-size: .75rem; padding: 5px 12px; border-radius: 4px; border: 1px solid rgba(255,255,255,.15); background: rgba(255,255,255,.06); color: white; outline: none; width: 220px; }
+    .search-inp::placeholder { color: rgba(255,255,255,.3); }
+    .search-inp:focus { border-color: rgba(255,255,255,.35); background: rgba(255,255,255,.1); }
+    .dash-main { padding: 24px 28px 60px; }
+    .dash-err { background: var(--crit-bg); border: 1px solid var(--crit-bd); color: var(--crit); font-family: var(--ff-mono); font-size: .78rem; padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; }
+    .table-wrap { background: var(--white); border-radius: 8px; border: 1px solid var(--border); overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.05); overflow-x: auto; }
+    .dash-table { width: 100%; border-collapse: collapse; font-size: .855rem; min-width: 760px; }
+    .dash-table thead th { font-family: var(--ff-mono); font-size: .6rem; letter-spacing: .08em; text-transform: uppercase; color: var(--slate-lt); padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); background: #ece7df; white-space: nowrap; }
+    .dash-table tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+    .dash-table tbody tr:last-child { border-bottom: none; }
+    .dash-table tbody tr:hover { background: #ece7df; }
+    .dash-table td { padding: 11px 14px; vertical-align: middle; }
+    .td-mono  { font-family: var(--ff-mono); font-size: .75rem; }
+    .td-small { font-size: .78rem; color: var(--slate); }
+    .td-name  { font-weight: 500; }
+    .td-case  { font-family: var(--ff-mono); font-size: .78rem; color: var(--slate); }
+    .status-badge { display: inline-block; font-family: var(--ff-mono); font-size: .6rem; font-weight: 500; letter-spacing: .07em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; white-space: nowrap; }
+    .status-badge.pending  { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+    .status-badge.complete { background: #ecfdf5; color: #14532d; border: 1px solid #a7f3d0; }
+    .dash-prog { display: flex; align-items: center; gap: 8px; }
+    .dash-prog-bar { width: 76px; height: 5px; background: var(--border); border-radius: 10px; overflow: hidden; }
+    .dash-prog-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg,#22d3ee,#4ade80); }
+    .dash-pct { font-family: var(--ff-mono); font-size: .65rem; color: var(--slate-lt); }
+    .row-btn { font-family: var(--ff-mono); font-size: .65rem; padding: 4px 10px; border-radius: 3px; border: 1px solid; cursor: pointer; transition: all .15s; }
+    .row-btn.open { background: var(--it-lt); border-color: var(--it-bd); color: var(--it); margin-right: 5px; }
+    .row-btn.open:hover { background: var(--it); color: white; }
+    .row-btn.del  { background: transparent; border-color: var(--crit-bd); color: var(--crit); }
+    .row-btn.del:hover { background: var(--crit-bg); }
+    .loading-row { text-align: center; padding: 40px !important; color: var(--slate-lt); font-family: var(--ff-mono); font-size: .78rem; }
+
+    /* ── CHECKLIST: ACTION BAR ── */
+    .cl-act-bar { background: var(--navy-mid); padding: 8px 28px; display: flex; align-items: center; gap: 14px; }
+    .cl-case-meta { font-family: var(--ff-mono); font-size: .65rem; color: var(--slate-lt); flex: 1; }
+    .cl-case-meta strong { color: rgba(255,255,255,.7); font-weight: 500; }
+    .save-status { display: flex; align-items: center; gap: 7px; }
+    .save-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--slate-lt); transition: background .2s; flex-shrink: 0; }
+    .save-dot.saving { background: #fbbf24; animation: pulse .9s infinite; }
+    .save-dot.saved  { background: #4ade80; }
+    .save-dot.error  { background: var(--crit); }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.35} }
+    .save-lbl { font-family: var(--ff-mono); font-size: .65rem; color: var(--slate-lt); }
+    .save-retry { font-family: var(--ff-mono); font-size: .65rem; color: #fca5a5; background: none; border: none; cursor: pointer; text-decoration: underline; display: none; }
+    .overall-prog { display: flex; align-items: center; gap: 10px; font-family: var(--ff-mono); font-size: .72rem; color: var(--slate-lt); }
+    .prog-pill { background: rgba(255,255,255,.12); border-radius: 20px; height: 7px; width: 110px; overflow: hidden; }
+    .prog-fill { height: 100%; border-radius: 20px; background: linear-gradient(90deg,#22d3ee,#4ade80); transition: width .4s ease; width: 0%; }
+
+    /* ── CHECKLIST: LAYOUT ── */
+    .cl-main { max-width: 880px; margin: 0 auto; padding: 24px 20px 70px; }
+    .emp-card { background: var(--white); border-radius: 8px; border: 1px solid var(--border); padding: 20px 24px 24px; margin-bottom: 22px; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+    .card-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+    .card-title { font-family: var(--ff-disp); font-size: .78rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--slate); }
+    .card-meta { font-family: var(--ff-mono); font-size: .62rem; color: var(--slate-lt); text-align: right; line-height: 1.7; }
+    .emp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .span2 { grid-column: span 2; }
+
+    /* ── CHECKLIST: SECTION CARDS ── */
+    .sec-card { background: var(--white); border-radius: 8px; border: 1px solid var(--border); margin-bottom: 18px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+    .sec-hdr { padding: 14px 22px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; border-bottom: 1px solid var(--border); transition: background .12s; }
+    .sec-hdr:hover { background: #ece7df; }
+    .sec-hdr-l { display: flex; align-items: center; gap: 12px; }
+    .sec-hdr-r { display: flex; align-items: center; gap: 14px; }
+    .dept-tag { font-family: var(--ff-mono); font-size: .62rem; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; padding: 3px 9px; border-radius: 3px; border: 1px solid; }
+    .dept-tag.hr  { background: var(--hr-lt);  color: var(--hr);  border-color: var(--hr-bd); }
+    .dept-tag.mgr { background: var(--mgr-lt); color: var(--mgr); border-color: var(--mgr-bd); }
+    .dept-tag.it  { background: var(--it-lt);  color: var(--it);  border-color: var(--it-bd); }
+    .sec-title { font-family: var(--ff-disp); font-weight: 700; font-size: .95rem; }
+    .sec-prog-txt { font-family: var(--ff-mono); font-size: .68rem; color: var(--slate-lt); }
+    .sec-prog-bar { width: 90px; height: 5px; background: var(--border); border-radius: 10px; overflow: hidden; }
+    .sec-prog-fill { height: 100%; border-radius: 10px; transition: width .4s ease; width: 0%; }
+    .sec-prog-fill.hr  { background: var(--hr); }
+    .sec-prog-fill.mgr { background: var(--mgr); }
+    .sec-prog-fill.it  { background: var(--it); }
+    .chevron { color: var(--slate-lt); font-size: .75rem; transition: transform .2s; }
+    .sec-card.collapsed .chevron { transform: rotate(-90deg); }
+    .sec-card.collapsed .sec-body { display: none; }
+    .cby-row { display: flex; align-items: center; gap: 10px; padding: 9px 22px; background: #ece7df; border-bottom: 1px solid var(--border); }
+    .cby-lbl { font-family: var(--ff-mono); font-size: .62rem; text-transform: uppercase; letter-spacing: .08em; color: var(--slate-lt); white-space: nowrap; }
+    .cby-inp { font-family: var(--ff-body); font-size: .8rem; padding: 4px 8px; border: 1px solid var(--border-dk); border-radius: 3px; outline: none; width: 200px; color: var(--navy); }
+    .cby-inp:focus { border-color: #60a5fa; }
+    .sub-sec { border-top: 1px solid var(--border); }
+    .sub-sec:first-child { border-top: none; }
+    .sub-hdr { padding: 9px 22px; background: #ece7df; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+    .sub-title { font-family: var(--ff-mono); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: var(--slate); font-weight: 500; }
+
+    /* ── CHECKLIST ITEMS ── */
+    .ci { border-bottom: 1px solid var(--border); }
+    .ci:last-child { border-bottom: none; }
+    .ci.done { background: #f0fdf4; }
+    .ci.crit { border-left: 3px solid var(--crit); }
+    .ci-row { display: flex; align-items: center; padding: 10px 22px; gap: 11px; }
+    .ci.crit .ci-row { padding-left: 19px; }
+    .item-cb { width: 16px; height: 16px; cursor: pointer; accent-color: var(--success); flex-shrink: 0; }
+    .ci-lbl { display: flex; align-items: center; flex: 1; gap: 8px; cursor: pointer; flex-wrap: wrap; }
+    .ci-txt { font-size: .875rem; color: var(--navy); line-height: 1.45; }
+    .ci.done .ci-txt { color: var(--slate-lt); text-decoration: line-through; }
+    .crit-tag { font-family: var(--ff-mono); font-size: .58rem; font-weight: 500; letter-spacing: .05em; text-transform: uppercase; background: var(--crit-bg); color: var(--crit); border: 1px solid var(--crit-bd); padding: 1px 6px; border-radius: 3px; white-space: nowrap; flex-shrink: 0; }
+    .ci-meta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .ci-ts { font-family: var(--ff-mono); font-size: .62rem; color: var(--slate-lt); white-space: nowrap; min-width: 110px; text-align: right; }
+    .note-btn { font-family: var(--ff-mono); font-size: .62rem; color: var(--slate-lt); background: none; border: 1px solid var(--border-dk); padding: 2px 7px; border-radius: 3px; cursor: pointer; transition: all .15s; white-space: nowrap; }
+    .note-btn:hover { color: var(--slate); border-color: var(--slate-lt); }
+    .note-btn.active { color: var(--it); border-color: var(--it); background: var(--it-lt); }
+    .note-row { display: none; padding: 0 22px 10px 49px; }
+    .note-row.open { display: flex; }
+    .note-ta { font-family: var(--ff-mono); font-size: .78rem; padding: 6px 10px; border: 1px solid var(--border-dk); border-radius: 4px; width: 100%; resize: vertical; min-height: 42px; color: var(--navy); outline: none; line-height: 1.5; }
+    .note-ta:focus { border-color: #60a5fa; }
+
+    /* ── SUMMARY ── */
+    .summary { background: var(--navy); color: white; border-radius: 8px; padding: 22px 28px; margin-top: 24px; }
+    .sum-title { font-family: var(--ff-disp); font-size: .75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--slate-lt); margin-bottom: 18px; }
+    .sum-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 18px; }
+    .sum-stat { text-align: center; }
+    .stat-val { font-family: var(--ff-disp); font-size: 1.9rem; font-weight: 800; line-height: 1; }
+    .stat-val.hr    { color: #4ade80; } .stat-val.mgr  { color: #fbbf24; }
+    .stat-val.it    { color: #60a5fa; } .stat-val.total{ color: #ece7df; }
+    .stat-lbl { font-family: var(--ff-mono); font-size: .62rem; text-transform: uppercase; letter-spacing: .08em; color: var(--slate-lt); margin-top: 5px; }
+
+    /* ── PRINT ── */
+    @media print {
+      .app-hdr, .cl-act-bar { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .hdr-back, .btn, .note-btn { display: none !important; }
+      body { background: white; }
+      .emp-card, .sec-card, .table-wrap { background: white !important; }
+      .sec-card.collapsed .sec-body { display: block !important; }
+      .ci.crit { border-left: 3px solid #dc2626 !important; print-color-adjust: exact; }
+      .ci.done { background: #f0fdf4 !important; print-color-adjust: exact; }
+      .summary  { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      #view-login, #view-reset, #view-dash { display: none !important; }
+      #view-checklist { display: block !important; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ CONFIG BANNER ══ -->
+<div id="config-banner">
+  ⚠ Setup required: Replace <code>YOUR_SUPABASE_URL</code> and <code>YOUR_SUPABASE_ANON_KEY</code> in the &lt;script&gt; at the bottom. Run <code>supabase_setup.sql</code> in your Supabase SQL Editor first.
+</div>
+
+<!-- ══ LOGIN VIEW ══ -->
+<div id="view-login" class="view active">
+  <div class="auth-bg">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="auth-logo-icon">⊘</div>
+        <div>
+          <div class="auth-app-title">Termination Checklist</div>
+          <div class="auth-app-sub">IT Operations Portal</div>
+        </div>
+      </div>
+      <div id="login-error" class="auth-error" style="display:none"></div>
+      <div id="login-info"  class="auth-info"  style="display:none"></div>
+      <div class="fld">
+        <div class="fld-lbl">Email</div>
+        <input class="fld-inp" type="email" id="login-email" placeholder="you@company.com" autocomplete="email" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div class="fld" style="margin-top:14px">
+        <div class="fld-lbl">Password</div>
+        <input class="fld-inp" type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="auth-btn" id="login-btn" onclick="doLogin()">Sign In</button>
+      <button class="auth-link-btn" onclick="doForgotPassword()">Forgot password?</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ RESET PASSWORD VIEW ══ -->
+<div id="view-reset" class="view">
+  <div class="auth-bg">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="auth-logo-icon">⊘</div>
+        <div>
+          <div class="auth-app-title">Set New Password</div>
+          <div class="auth-app-sub">Termination Checklist Portal</div>
+        </div>
+      </div>
+      <div id="reset-error" class="auth-error" style="display:none"></div>
+      <div class="fld">
+        <div class="fld-lbl">New Password</div>
+        <input class="fld-inp" type="password" id="reset-p1" placeholder="Minimum 8 characters">
+      </div>
+      <div class="fld" style="margin-top:14px">
+        <div class="fld-lbl">Confirm Password</div>
+        <input class="fld-inp" type="password" id="reset-p2" placeholder="Repeat password" onkeydown="if(event.key==='Enter')doSetPassword()">
+      </div>
+      <button class="auth-btn" onclick="doSetPassword()">Set New Password</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DASHBOARD VIEW ══ -->
+<div id="view-dash" class="view">
+  <header class="app-hdr">
+    <div class="hdr-brand">
+      <div class="hdr-title">Termination Checklist</div>
+      <div class="hdr-sub">IT Operations Portal</div>
+    </div>
+    <div class="hdr-right">
+      <span class="user-email" id="dash-user-email"></span>
+      <button class="btn btn-ghost" onclick="doLogout()">Sign Out</button>
+    </div>
+  </header>
+  <div class="dash-toolbar">
+    <button class="btn btn-primary" onclick="newChecklist()">+ New Checklist</button>
+    <div class="filter-tabs">
+      <button class="filter-tab active" data-filter="all"      onclick="applyFilter('all')">All</button>
+      <button class="filter-tab"        data-filter="pending"  onclick="applyFilter('pending')">Pending</button>
+      <button class="filter-tab"        data-filter="complete" onclick="applyFilter('complete')">Complete</button>
+    </div>
+    <input type="search" class="search-inp" id="dash-search" placeholder="Search name or case ID…" oninput="renderDash()">
+  </div>
+  <div class="dash-main">
+    <div id="dash-err" class="dash-err" style="display:none"></div>
+    <div class="table-wrap">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>Status</th><th>Case ID</th><th>Employee</th><th>Dept</th>
+            <th>Last Day</th><th>Progress</th><th>Opened By</th><th>Updated</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="dash-tbody">
+          <tr><td colspan="9" class="loading-row">Loading cases…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CHECKLIST VIEW ══ -->
+<div id="view-checklist" class="view">
+  <header class="app-hdr">
+    <div class="hdr-left">
+      <button class="hdr-back" onclick="backToDash()">← Cases</button>
+      <div class="hdr-brand">
+        <div class="hdr-title">Termination Checklist</div>
+        <div class="hdr-sub" id="cl-sub">New Case</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="overall-prog">
+        <span id="overall-txt">0%</span>
+        <div class="prog-pill"><div class="prog-fill" id="overall-fill"></div></div>
+      </div>
+      <div class="save-status">
+        <div class="save-dot" id="save-dot"></div>
+        <span class="save-lbl" id="save-lbl">Ready</span>
+        <button class="save-retry" id="save-retry" onclick="doSave()">Retry</button>
+      </div>
+    </div>
+  </header>
+  <div class="cl-act-bar">
+    <div class="cl-case-meta">
+      CASE <strong id="case-id-val">—</strong> &nbsp;·&nbsp; Opened <strong id="opened-at-val">—</strong>
+      &nbsp;·&nbsp; <span id="cl-modified-meta"></span>
+    </div>
+    <button class="btn btn-ghost" onclick="window.print()">⎙ Print / PDF</button>
+  </div>
+
+  <div class="cl-main">
+
+    <!-- Employee Info -->
+    <div class="emp-card">
+      <div class="card-hdr">
+        <div class="card-title">Employee Information</div>
+        <div class="card-meta" id="cl-card-meta">Auto-saves to database</div>
+      </div>
+      <div class="emp-grid">
+        <div class="fld span2"><div class="fld-lbl">Full Name</div><input class="fld-inp" type="text" data-emp="name" placeholder="Last, First" oninput="onNameInput()"></div>
+        <div class="fld"><div class="fld-lbl">Department</div><input class="fld-inp" type="text" data-emp="dept"></div>
+        <div class="fld"><div class="fld-lbl">Job Title</div><input class="fld-inp" type="text" data-emp="title"></div>
+        <div class="fld"><div class="fld-lbl">Last Day</div><input class="fld-inp" type="date" data-emp="lastday"></div>
+        <div class="fld"><div class="fld-lbl">Termination Type</div>
+          <select class="fld-inp" data-emp="termtype">
+            <option value="">— Select —</option>
+            <option>Voluntary</option><option>Involuntary</option>
+            <option>Layoff / RIF</option><option>Retirement</option><option>End of Contract</option>
+          </select>
+        </div>
+        <div class="fld"><div class="fld-lbl">Direct Manager</div><input class="fld-inp" type="text" data-emp="manager"></div>
+      </div>
+    </div>
+
+    <!-- HR SECTION -->
+    <div class="sec-card" id="section-hr">
+      <div class="sec-hdr" onclick="toggleSec('section-hr')">
+        <div class="sec-hdr-l"><span class="dept-tag hr">HR</span><span class="sec-title">Human Resources</span></div>
+        <div class="sec-hdr-r"><span class="sec-prog-txt" id="prog-section-hr">0/13</span><div class="sec-prog-bar"><div class="sec-prog-fill hr" id="fill-section-hr"></div></div><span class="chevron">▾</span></div>
+      </div>
+      <div class="sec-body">
+        <div class="cby-row"><span class="cby-lbl">Completed by:</span><input class="cby-inp" type="text" data-cby="hr" placeholder="HR rep name"></div>
+        <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="hr-1" onchange="onCk('hr-1')"><label class="ci-lbl" onclick="tgl('hr-1')"><span class="ci-txt">Termination date and time confirmed and communicated to IT and Manager</span></label><div class="ci-meta"><span class="ci-ts" id="ts-hr-1"></span><button class="note-btn" id="nb-hr-1" onclick="tglNote('hr-1')">+ note</button></div></div><div class="note-row" id="nr-hr-1"><textarea class="note-ta" id="notes-hr-1" placeholder="Notes, ticket #, reference..."></textarea></div></div>
+        <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="hr-2" onchange="onCk('hr-2')"><label class="ci-lbl" onclick="tgl('hr-2')"><span class="ci-txt">Final paycheck scheduled per applicable state law</span></label><div class="ci-meta"><span class="ci-ts" id="ts-hr-2"></span><button class="note-btn" id="nb-hr-2" onclick="tglNote('hr-2')">+ note</button></div></div><div class="note-row" id="nr-hr-2"><textarea class="note-ta" id="notes-hr-2" placeholder="Notes..."></textarea></div></div>
+        <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="hr-3" onchange="onCk('hr-3')"><label class="ci-lbl" onclick="tgl('hr-3')"><span class="ci-txt">Benefits termination initiated — health, dental, vision</span></label><div class="ci-meta"><span class="ci-ts" id="ts-hr-3"></span><button class="note-btn" id="nb-hr-3" onclick="tglNote('hr-3')">+ note</button></div></div><div class="note-row" id="nr-hr-3"><textarea class="note-ta" id="notes-hr-3" placeholder="Notes..."></textarea></div></div>
+        <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="hr-4" onchange="onCk('hr-4')"><label class="ci-lbl" onclick="tgl('hr-4')"><span class="ci-txt">COBRA notification sent (if applicable)</span></label><div class="ci-meta"><span class="ci-ts" id="ts-hr-4"></span><button class="note-btn" id="nb-hr-4" onclick="tglNote('hr-4')">+ note</button></div></div><div class="note-row" id="nr-hr-4"><textarea class="note-ta" id="notes-hr-4" placeholder="Notes..."></textarea></div></div>
+        <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="hr-5" onchange="onCk('hr-5')"><label class="ci-lbl" onclick="tgl('hr-5')"><span class="ci-txt">401(k) / retirement plan — separation notification sent to provider</span></label><div class="ci-meta"><span class="ci-ts" id="ts-hr-5"></span><button class="note-btn" id="nb-hr-5" onclick="tglNote('hr-5')">+ note</button></div></div><div class="note-row" id="nr-hr-5"><textarea class="note-ta" id="notes-hr-5" placeholder="Notes..."></textarea></div></div>
+        <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="hr-6" onchange="onCk('hr-6')"><label class="ci-lbl" onclick="tgl('hr-6')"><span class="ci-txt">Company credit / purchasing cards cancelled or surrendered</span></label><div class="ci-meta"><span class="ci-ts" id="ts-hr-6"></span><button class="note-btn" id="nb-hr-6" onclick="tglNote('hr-6')">+ note</button></div></div><div class="note-row" id="nr-hr-6"><textarea class="note-ta" id="notes-hr-6" placeholder="Notes..."></textarea></div></div>
+        <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="hr-7" onchange="onCk('hr-7')"><label class="ci-lbl" onclick="tgl('hr-7')"><span class="ci-txt">Exit interview completed (or formally waived / documented)</span></label><div class="ci-meta"><span class="ci-ts" id="ts-hr-7"></span><button class="note-btn" id="nb-hr-7" onclick="tglNote('hr-7')">+ note</button></div></div><div class="note-row" id="nr-hr-7"><textarea class="note-ta" id="notes-hr-7" placeholder="Notes..."></textarea></div></div>
+        <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="hr-8" onchange="onCk('hr-8')"><label class="ci-lbl" onclick="tgl('hr-8')"><span class="ci-txt">Return of company property acknowledgment form signed</span></label><div class="ci-meta"><span class="ci-ts" id="ts-hr-8"></span><button class="note-btn" id="nb-hr-8" onclick="tglNote('hr-8')">+ note</button></div></div><div class="note-row" id="nr-hr-8"><textarea class="note-ta" id="notes-hr-8" placeholder="Notes..."></textarea></div></div>
+        <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="hr-9" onchange="onCk('hr-9')"><label class="ci-lbl" onclick="tgl('hr-9')"><span class="ci-txt">NDA / confidentiality reminder acknowledged and documented</span></label><div class="ci-meta"><span class="ci-ts" id="ts-hr-9"></span><button class="note-btn" id="nb-hr-9" onclick="tglNote('hr-9')">+ note</button></div></div><div class="note-row" id="nr-hr-9"><textarea class="note-ta" id="notes-hr-9" placeholder="Notes..."></textarea></div></div>
+        <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="hr-10" onchange="onCk('hr-10')"><label class="ci-lbl" onclick="tgl('hr-10')"><span class="ci-txt">Separation agreement signed (if applicable)</span></label><div class="ci-meta"><span class="ci-ts" id="ts-hr-10"></span><button class="note-btn" id="nb-hr-10" onclick="tglNote('hr-10')">+ note</button></div></div><div class="note-row" id="nr-hr-10"><textarea class="note-ta" id="notes-hr-10" placeholder="Notes..."></textarea></div></div>
+        <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="hr-11" onchange="onCk('hr-11')"><label class="ci-lbl" onclick="tgl('hr-11')"><span class="ci-txt">Payroll system record updated to terminated status</span></label><div class="ci-meta"><span class="ci-ts" id="ts-hr-11"></span><button class="note-btn" id="nb-hr-11" onclick="tglNote('hr-11')">+ note</button></div></div><div class="note-row" id="nr-hr-11"><textarea class="note-ta" id="notes-hr-11" placeholder="Notes..."></textarea></div></div>
+        <div class="ci crit"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="hr-12" onchange="onCk('hr-12')"><label class="ci-lbl" onclick="tgl('hr-12')"><span class="crit-tag">⚠ Critical</span><span class="ci-txt">Physical keys, fobs, and access cards collected</span></label><div class="ci-meta"><span class="ci-ts" id="ts-hr-12"></span><button class="note-btn" id="nb-hr-12" onclick="tglNote('hr-12')">+ note</button></div></div><div class="note-row" id="nr-hr-12"><textarea class="note-ta" id="notes-hr-12" placeholder="Notes..."></textarea></div></div>
+        <div class="ci crit"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="hr-13" onchange="onCk('hr-13')"><label class="ci-lbl" onclick="tgl('hr-13')"><span class="crit-tag">⚠ Critical</span><span class="ci-txt">Employee escorted from premises (required for involuntary terminations)</span></label><div class="ci-meta"><span class="ci-ts" id="ts-hr-13"></span><button class="note-btn" id="nb-hr-13" onclick="tglNote('hr-13')">+ note</button></div></div><div class="note-row" id="nr-hr-13"><textarea class="note-ta" id="notes-hr-13" placeholder="Notes..."></textarea></div></div>
+      </div>
+    </div>
+
+    <!-- MANAGER SECTION -->
+    <div class="sec-card" id="section-mgr">
+      <div class="sec-hdr" onclick="toggleSec('section-mgr')">
+        <div class="sec-hdr-l"><span class="dept-tag mgr">Manager</span><span class="sec-title">Manager</span></div>
+        <div class="sec-hdr-r"><span class="sec-prog-txt" id="prog-section-mgr">0/9</span><div class="sec-prog-bar"><div class="sec-prog-fill mgr" id="fill-section-mgr"></div></div><span class="chevron">▾</span></div>
+      </div>
+      <div class="sec-body">
+        <div class="cby-row"><span class="cby-lbl">Completed by:</span><input class="cby-inp" type="text" data-cby="mgr" placeholder="Manager name"></div>
+        <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="mgr-1" onchange="onCk('mgr-1')"><label class="ci-lbl" onclick="tgl('mgr-1')"><span class="ci-txt">Critical files, projects, and institutional knowledge documented and transferred</span></label><div class="ci-meta"><span class="ci-ts" id="ts-mgr-1"></span><button class="note-btn" id="nb-mgr-1" onclick="tglNote('mgr-1')">+ note</button></div></div><div class="note-row" id="nr-mgr-1"><textarea class="note-ta" id="notes-mgr-1" placeholder="Notes..."></textarea></div></div>
+        <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="mgr-2" onchange="onCk('mgr-2')"><label class="ci-lbl" onclick="tgl('mgr-2')"><span class="ci-txt">Open tickets, tasks, and work items reassigned in ticketing / project system</span></label><div class="ci-meta"><span class="ci-ts" id="ts-mgr-2"></span><button class="note-btn" id="nb-mgr-2" onclick="tglNote('mgr-2')">+ note</button></div></div><div class="note-row" id="nr-mgr-2"><textarea class="note-ta" id="notes-mgr-2" placeholder="Notes..."></textarea></div></div>
+        <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="mgr-3" onchange="onCk('mgr-3')"><label class="ci-lbl" onclick="tgl('mgr-3')"><span class="ci-txt">External clients / vendors notified or relationships formally transitioned</span></label><div class="ci-meta"><span class="ci-ts" id="ts-mgr-3"></span><button class="note-btn" id="nb-mgr-3" onclick="tglNote('mgr-3')">+ note</button></div></div><div class="note-row" id="nr-mgr-3"><textarea class="note-ta" id="notes-mgr-3" placeholder="Notes..."></textarea></div></div>
+        <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="mgr-4" onchange="onCk('mgr-4')"><label class="ci-lbl" onclick="tgl('mgr-4')"><span class="ci-txt">Internal team notified at appropriate level of detail</span></label><div class="ci-meta"><span class="ci-ts" id="ts-mgr-4"></span><button class="note-btn" id="nb-mgr-4" onclick="tglNote('mgr-4')">+ note</button></div></div><div class="note-row" id="nr-mgr-4"><textarea class="note-ta" id="notes-mgr-4" placeholder="Notes..."></textarea></div></div>
+        <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="mgr-5" onchange="onCk('mgr-5')"><label class="ci-lbl" onclick="tgl('mgr-5')"><span class="ci-txt">Delegated purchasing authority or approval workflows revoked</span></label><div class="ci-meta"><span class="ci-ts" id="ts-mgr-5"></span><button class="note-btn" id="nb-mgr-5" onclick="tglNote('mgr-5')">+ note</button></div></div><div class="note-row" id="nr-mgr-5"><textarea class="note-ta" id="notes-mgr-5" placeholder="Notes..."></textarea></div></div>
+        <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="mgr-6" onchange="onCk('mgr-6')"><label class="ci-lbl" onclick="tgl('mgr-6')"><span class="ci-txt">Pending expense reports reviewed and approved prior to departure</span></label><div class="ci-meta"><span class="ci-ts" id="ts-mgr-6"></span><button class="note-btn" id="nb-mgr-6" onclick="tglNote('mgr-6')">+ note</button></div></div><div class="note-row" id="nr-mgr-6"><textarea class="note-ta" id="notes-mgr-6" placeholder="Notes..."></textarea></div></div>
+        <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="mgr-7" onchange="onCk('mgr-7')"><label class="ci-lbl" onclick="tgl('mgr-7')"><span class="ci-txt">Out-of-office auto-reply and/or email delegation set up — confirmed with IT</span></label><div class="ci-meta"><span class="ci-ts" id="ts-mgr-7"></span><button class="note-btn" id="nb-mgr-7" onclick="tglNote('mgr-7')">+ note</button></div></div><div class="note-row" id="nr-mgr-7"><textarea class="note-ta" id="notes-mgr-7" placeholder="Notes..."></textarea></div></div>
+        <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="mgr-8" onchange="onCk('mgr-8')"><label class="ci-lbl" onclick="tgl('mgr-8')"><span class="ci-txt">Shared team credentials / passwords this user knew have been rotated</span></label><div class="ci-meta"><span class="ci-ts" id="ts-mgr-8"></span><button class="note-btn" id="nb-mgr-8" onclick="tglNote('mgr-8')">+ note</button></div></div><div class="note-row" id="nr-mgr-8"><textarea class="note-ta" id="notes-mgr-8" placeholder="Notes..."></textarea></div></div>
+        <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="mgr-9" onchange="onCk('mgr-9')"><label class="ci-lbl" onclick="tgl('mgr-9')"><span class="ci-txt">Company vehicle returned and mileage / condition logged (if applicable)</span></label><div class="ci-meta"><span class="ci-ts" id="ts-mgr-9"></span><button class="note-btn" id="nb-mgr-9" onclick="tglNote('mgr-9')">+ note</button></div></div><div class="note-row" id="nr-mgr-9"><textarea class="note-ta" id="notes-mgr-9" placeholder="Notes..."></textarea></div></div>
+      </div>
+    </div>
+
+    <!-- IT SECTION -->
+    <div class="sec-card" id="section-it">
+      <div class="sec-hdr" onclick="toggleSec('section-it')">
+        <div class="sec-hdr-l"><span class="dept-tag it">IT</span><span class="sec-title">Information Technology</span></div>
+        <div class="sec-hdr-r"><span class="sec-prog-txt" id="prog-section-it">0/23</span><div class="sec-prog-bar"><div class="sec-prog-fill it" id="fill-section-it"></div></div><span class="chevron">▾</span></div>
+      </div>
+      <div class="sec-body">
+        <div class="cby-row"><span class="cby-lbl">Completed by:</span><input class="cby-inp" type="text" data-cby="it" placeholder="IT tech name"></div>
+
+        <!-- Entra ID / M365 -->
+        <div class="sub-sec">
+          <div class="sub-hdr"><span>☁</span><span class="sub-title">Entra ID / Microsoft 365</span></div>
+          <div class="ci crit"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-m2" onchange="onCk('it-m2')"><label class="ci-lbl" onclick="tgl('it-m2')"><span class="crit-tag">⚠ Critical</span><span class="ci-txt">Revoke all active sessions</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-m2"></span><button class="note-btn" id="nb-it-m2" onclick="tglNote('it-m2')">+ note</button></div></div><div class="note-row" id="nr-it-m2"><textarea class="note-ta" id="notes-it-m2" placeholder="Notes..."></textarea></div></div>
+          <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-m4" onchange="onCk('it-m4')"><label class="ci-lbl" onclick="tgl('it-m4')"><span class="ci-txt">Reset account password to a random string (even if sign-in is blocked)</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-m4"></span><button class="note-btn" id="nb-it-m4" onclick="tglNote('it-m4')">+ note</button></div></div><div class="note-row" id="nr-it-m4"><textarea class="note-ta" id="notes-it-m4" placeholder="Notes..."></textarea></div></div>
+          <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-m5" onchange="onCk('it-m5')"><label class="ci-lbl" onclick="tgl('it-m5')"><span class="ci-txt">MFA methods and registered authenticator devices cleared from account</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-m5"></span><button class="note-btn" id="nb-it-m5" onclick="tglNote('it-m5')">+ note</button></div></div><div class="note-row" id="nr-it-m5"><textarea class="note-ta" id="notes-it-m5" placeholder="Notes..."></textarea></div></div>
+          <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-m6" onchange="onCk('it-m6')"><label class="ci-lbl" onclick="tgl('it-m6')"><span class="ci-txt">Remove from all Microsoft 365 Groups, Teams, and channels and remove O365 Licenses</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-m6"></span><button class="note-btn" id="nb-it-m6" onclick="tglNote('it-m6')">+ note</button></div></div><div class="note-row" id="nr-it-m6"><textarea class="note-ta" id="notes-it-m6" placeholder="Notes..."></textarea></div></div>
+          <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-m7" onchange="onCk('it-m7')"><label class="ci-lbl" onclick="tgl('it-m7')"><span class="ci-txt">Remove from all distribution lists and mail-enabled security groups</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-m7"></span><button class="note-btn" id="nb-it-m7" onclick="tglNote('it-m7')">+ note</button></div></div><div class="note-row" id="nr-it-m7"><textarea class="note-ta" id="notes-it-m7" placeholder="Notes..."></textarea></div></div>
+          <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-m8" onchange="onCk('it-m8')"><label class="ci-lbl" onclick="tgl('it-m8')"><span class="ci-txt">Convert mailbox to Shared Mailbox</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-m8"></span><button class="note-btn" id="nb-it-m8" onclick="tglNote('it-m8')">+ note</button></div></div><div class="note-row" id="nr-it-m8"><textarea class="note-ta" id="notes-it-m8" placeholder="Notes..."></textarea></div></div>
+          <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-m9" onchange="onCk('it-m9')"><label class="ci-lbl" onclick="tgl('it-m9')"><span class="ci-txt">Set Out-of-Office auto-reply on mailbox with appropriate redirect message (if applicable)</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-m9"></span><button class="note-btn" id="nb-it-m9" onclick="tglNote('it-m9')">+ note</button></div></div><div class="note-row" id="nr-it-m9"><textarea class="note-ta" id="notes-it-m9" placeholder="Notes..."></textarea></div></div>
+          <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-m10" onchange="onCk('it-m10')"><label class="ci-lbl" onclick="tgl('it-m10')"><span class="ci-txt">Configure mailbox forwarding to manager (only if explicitly manager-approved)</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-m10"></span><button class="note-btn" id="nb-it-m10" onclick="tglNote('it-m10')">+ note</button></div></div><div class="note-row" id="nr-it-m10"><textarea class="note-ta" id="notes-it-m10" placeholder="Notes..."></textarea></div></div>
+          <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-m11" onchange="onCk('it-m11')"><label class="ci-lbl" onclick="tgl('it-m11')"><span class="ci-txt">Transfer OneDrive ownership to direct manager — set 30-day access window and send link via email</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-m11"></span><button class="note-btn" id="nb-it-m11" onclick="tglNote('it-m11')">+ note</button></div></div><div class="note-row" id="nr-it-m11"><textarea class="note-ta" id="notes-it-m11" placeholder="Notes..."></textarea></div></div>
+          <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-m12" onchange="onCk('it-m12')"><label class="ci-lbl" onclick="tgl('it-m12')"><span class="ci-txt">Review SharePoint site ownership — reassign if this user was a site owner</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-m12"></span><button class="note-btn" id="nb-it-m12" onclick="tglNote('it-m12')">+ note</button></div></div><div class="note-row" id="nr-it-m12"><textarea class="note-ta" id="notes-it-m12" placeholder="Notes..."></textarea></div></div>
+        </div>
+
+        <!-- On-Prem AD -->
+        <div class="sub-sec">
+          <div class="sub-hdr"><span>🖧</span><span class="sub-title">On-Premises Active Directory</span></div>
+          <div class="ci crit"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-ad1" onchange="onCk('it-ad1')"><label class="ci-lbl" onclick="tgl('it-ad1')"><span class="crit-tag">⚠ Critical</span><span class="ci-txt">Disable AD account immediately — confirm sync state with Entra ID</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-ad1"></span><button class="note-btn" id="nb-it-ad1" onclick="tglNote('it-ad1')">+ note</button></div></div><div class="note-row" id="nr-it-ad1"><textarea class="note-ta" id="notes-it-ad1" placeholder="Notes..."></textarea></div></div>
+          <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-ad2" onchange="onCk('it-ad2')"><label class="ci-lbl" onclick="tgl('it-ad2')"><span class="ci-txt">Move account to Disabled Users OU</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-ad2"></span><button class="note-btn" id="nb-it-ad2" onclick="tglNote('it-ad2')">+ note</button></div></div><div class="note-row" id="nr-it-ad2"><textarea class="note-ta" id="notes-it-ad2" placeholder="Notes..."></textarea></div></div>
+          <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-ad3" onchange="onCk('it-ad3')"><label class="ci-lbl" onclick="tgl('it-ad3')"><span class="ci-txt">Screenshot or document group membership before — Remove from all security and distribution groups in AD</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-ad3"></span><button class="note-btn" id="nb-it-ad3" onclick="tglNote('it-ad3')">+ note</button></div></div><div class="note-row" id="nr-it-ad3"><textarea class="note-ta" id="notes-it-ad3" placeholder="Notes..."></textarea></div></div>
+          <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-ad4" onchange="onCk('it-ad4')"><label class="ci-lbl" onclick="tgl('it-ad4')"><span class="ci-txt">Reset AD password to a long random string</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-ad4"></span><button class="note-btn" id="nb-it-ad4" onclick="tglNote('it-ad4')">+ note</button></div></div><div class="note-row" id="nr-it-ad4"><textarea class="note-ta" id="notes-it-ad4" placeholder="Notes..."></textarea></div></div>
+        </div>
+
+        <!-- Physical Access -->
+        <div class="sub-sec">
+          <div class="sub-hdr"><span>🏢</span><span class="sub-title">Physical Access / Badge</span></div>
+          <div class="ci crit"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-ph1" onchange="onCk('it-ph1')"><label class="ci-lbl" onclick="tgl('it-ph1')"><span class="crit-tag">⚠ Critical</span><span class="ci-txt">Deactivate badge / access card in access control system immediately</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-ph1"></span><button class="note-btn" id="nb-it-ph1" onclick="tglNote('it-ph1')">+ note</button></div></div><div class="note-row" id="nr-it-ph1"><textarea class="note-ta" id="notes-it-ph1" placeholder="Notes..."></textarea></div></div>
+          <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-ph4" onchange="onCk('it-ph4')"><label class="ci-lbl" onclick="tgl('it-ph4')"><span class="ci-txt">Shared keypad codes / door combinations changed if user had knowledge of them — consult with management and HR</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-ph4"></span><button class="note-btn" id="nb-it-ph4" onclick="tglNote('it-ph4')">+ note</button></div></div><div class="note-row" id="nr-it-ph4"><textarea class="note-ta" id="notes-it-ph4" placeholder="Notes..."></textarea></div></div>
+          <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-ph5" onchange="onCk('it-ph5')"><label class="ci-lbl" onclick="tgl('it-ph5')"><span class="ci-txt">Facilities / building management notified</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-ph5"></span><button class="note-btn" id="nb-it-ph5" onclick="tglNote('it-ph5')">+ note</button></div></div><div class="note-row" id="nr-it-ph5"><textarea class="note-ta" id="notes-it-ph5" placeholder="Notes..."></textarea></div></div>
+        </div>
+
+        <!-- Devices -->
+        <div class="sub-sec">
+          <div class="sub-hdr"><span>💻</span><span class="sub-title">Devices (Laptop / Tablet)</span></div>
+          <div class="ci crit"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-dv1" onchange="onCk('it-dv1')"><label class="ci-lbl" onclick="tgl('it-dv1')"><span class="crit-tag">⚠ Critical</span><span class="ci-txt">Initiate Intune remote wipe or retire on all enrolled mobile / tablet devices</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-dv1"></span><button class="note-btn" id="nb-it-dv1" onclick="tglNote('it-dv1')">+ note</button></div></div><div class="note-row" id="nr-it-dv1"><textarea class="note-ta" id="notes-it-dv1" placeholder="Notes..."></textarea></div></div>
+          <div class="ci crit"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-dv2" onchange="onCk('it-dv2')"><label class="ci-lbl" onclick="tgl('it-dv2')"><span class="crit-tag">⚠ Critical</span><span class="ci-txt">Laptop and/or tablet physically collected from employee</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-dv2"></span><button class="note-btn" id="nb-it-dv2" onclick="tglNote('it-dv2')">+ note</button></div></div><div class="note-row" id="nr-it-dv2"><textarea class="note-ta" id="notes-it-dv2" placeholder="Notes..."></textarea></div></div>
+          <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-dv3" onchange="onCk('it-dv3')"><label class="ci-lbl" onclick="tgl('it-dv3')"><span class="ci-txt">Device serial numbers, model, and physical condition documented at return</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-dv3"></span><button class="note-btn" id="nb-it-dv3" onclick="tglNote('it-dv3')">+ note</button></div></div><div class="note-row" id="nr-it-dv3"><textarea class="note-ta" id="notes-it-dv3" placeholder="Notes..."></textarea></div></div>
+          <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-dv4" onchange="onCk('it-dv4')"><label class="ci-lbl" onclick="tgl('it-dv4')"><span class="ci-txt">Peripherals, chargers, docking stations, and accessories collected</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-dv4"></span><button class="note-btn" id="nb-it-dv4" onclick="tglNote('it-dv4')">+ note</button></div></div><div class="note-row" id="nr-it-dv4"><textarea class="note-ta" id="notes-it-dv4" placeholder="Notes..."></textarea></div></div>
+          <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-dv5" onchange="onCk('it-dv5')"><label class="ci-lbl" onclick="tgl('it-dv5')"><span class="ci-txt">Device wiped / re-imaged and staged for redeployment or surplused</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-dv5"></span><button class="note-btn" id="nb-it-dv5" onclick="tglNote('it-dv5')">+ note</button></div></div><div class="note-row" id="nr-it-dv5"><textarea class="note-ta" id="notes-it-dv5" placeholder="Notes..."></textarea></div></div>
+          <div class="ci"><div class="ci-row"><input type="checkbox" class="item-cb" data-id="it-dv6" onchange="onCk('it-dv6')"><label class="ci-lbl" onclick="tgl('it-dv6')"><span class="ci-txt">Asset inventory / CMDB updated — device status set to Available or Retired</span></label><div class="ci-meta"><span class="ci-ts" id="ts-it-dv6"></span><button class="note-btn" id="nb-it-dv6" onclick="tglNote('it-dv6')">+ note</button></div></div><div class="note-row" id="nr-it-dv6"><textarea class="note-ta" id="notes-it-dv6" placeholder="Notes..."></textarea></div></div>
+        </div>
+      </div>
+    </div><!-- /IT -->
+
+    <!-- Summary -->
+    <div class="summary">
+      <div class="sum-title">Completion Summary</div>
+      <div class="sum-grid">
+        <div class="sum-stat"><div class="stat-val total" id="stat-total">0/45</div><div class="stat-lbl">Total</div></div>
+        <div class="sum-stat"><div class="stat-val hr"    id="stat-hr">0/13</div><div class="stat-lbl">HR</div></div>
+        <div class="sum-stat"><div class="stat-val mgr"   id="stat-mgr">0/9</div><div class="stat-lbl">Manager</div></div>
+        <div class="sum-stat"><div class="stat-val it"    id="stat-it">0/23</div><div class="stat-lbl">IT</div></div>
+      </div>
+    </div>
+  </div><!-- /cl-main -->
+</div><!-- /checklist view -->
+
+<script>
+// ═══════════════════════════════════════════════
+//  CONFIG — Replace with your Supabase values
+//  (Settings → API in your Supabase dashboard)
+// ═══════════════════════════════════════════════
+const SUPABASE_URL      = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let currentUser = null;
+let currentId   = null;   // UUID of open checklist row; null = unsaved new case
+let allRows     = [];
+let filterSt    = 'all';
+let saveTimer   = null;
+
+// ═══════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════
+function nowStr() {
+  return new Date().toLocaleString('en-US',{month:'2-digit',day:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit',hour12:true});
+}
+function genCaseId() {
+  const d=new Date(), y=d.getFullYear().toString().slice(2),
+        m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `TERM-${y}${m}${day}-${String(Math.floor(Math.random()*9000)+1000)}`;
+}
+function timeAgo(iso) {
+  if(!iso) return '—';
+  const diff=Date.now()-new Date(iso).getTime(), m=Math.floor(diff/60000);
+  if(m<1) return 'just now'; if(m<60) return `${m}m ago`;
+  const h=Math.floor(m/60); if(h<24) return `${h}h ago`;
+  return `${Math.floor(h/24)}d ago`;
+}
+function fmtDate(d) {
+  if(!d) return '—';
+  const [y,mo,day]=d.split('-'); return `${mo}/${day}/${y.slice(2)}`;
+}
+function showView(n) {
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+n).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════
+//  AUTH
+// ═══════════════════════════════════════════════
+async function doLogin() {
+  const email=document.getElementById('login-email').value.trim();
+  const pass =document.getElementById('login-pass').value;
+  const btn  =document.getElementById('login-btn');
+  const err  =document.getElementById('login-error');
+  err.style.display='none'; btn.disabled=true; btn.textContent='Signing in…';
+  const {error}=await sb.auth.signInWithPassword({email,password:pass});
+  btn.disabled=false; btn.textContent='Sign In';
+  if(error){err.textContent=error.message; err.style.display='block';}
+}
+async function doLogout() { await sb.auth.signOut(); }
+async function doForgotPassword() {
+  const email=document.getElementById('login-email').value.trim();
+  const err=document.getElementById('login-error');
+  const info=document.getElementById('login-info');
+  err.style.display='none'; info.style.display='none';
+  if(!email){err.textContent='Enter your email above first.'; err.style.display='block'; return;}
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+window.location.pathname});
+  if(error){err.textContent=error.message; err.style.display='block';}
+  else{info.textContent=`Password reset email sent to ${email}.`; info.style.display='block';}
+}
+async function doSetPassword() {
+  const p1=document.getElementById('reset-p1').value;
+  const p2=document.getElementById('reset-p2').value;
+  const err=document.getElementById('reset-error');
+  err.style.display='none';
+  if(p1.length<8){err.textContent='Password must be at least 8 characters.'; err.style.display='block'; return;}
+  if(p1!==p2){err.textContent='Passwords do not match.'; err.style.display='block'; return;}
+  const {error}=await sb.auth.updateUser({password:p1});
+  if(error){err.textContent=error.message; err.style.display='block';}
+  else{showView('dash'); loadDash();}
+}
+
+// ═══════════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════════
+async function loadDash() {
+  document.getElementById('dash-user-email').textContent=currentUser?.email||'';
+  document.getElementById('dash-err').style.display='none';
+  document.getElementById('dash-tbody').innerHTML='<tr><td colspan="9" class="loading-row">Loading cases…</td></tr>';
+  document.getElementById('dash-search').value='';
+  filterSt='all';
+  document.querySelectorAll('.filter-tab').forEach(t=>t.classList.toggle('active',t.dataset.filter==='all'));
+
+  const {data,error}=await sb.from('checklists')
+    .select('id,case_id,employee,progress,status,created_at,updated_at,created_by_email,last_modified_by_email')
+    .order('created_at',{ascending:false});
+
+  if(error){
+    document.getElementById('dash-err').textContent='Load error: '+error.message;
+    document.getElementById('dash-err').style.display='block';
+    document.getElementById('dash-tbody').innerHTML='';
+    return;
+  }
+  allRows=data||[];
+  renderDash();
+}
+
+function renderDash() {
+  const q=(document.getElementById('dash-search').value||'').toLowerCase();
+  const filtered=allRows.filter(r=>{
+    if(filterSt!=='all'&&r.status!==filterSt) return false;
+    if(!q) return true;
+    return (r.employee?.name||'').toLowerCase().includes(q)||(r.case_id||'').toLowerCase().includes(q);
+  });
+  const tbody=document.getElementById('dash-tbody');
+  if(!filtered.length){
+    tbody.innerHTML=`<tr><td colspan="9" class="loading-row">No checklists found. <a onclick="newChecklist()" style="color:var(--it);cursor:pointer">Create one →</a></td></tr>`;
+    return;
+  }
+  tbody.innerHTML=filtered.map(r=>{
+    const p=r.progress||{}, pct=p.pct||0, emp=r.employee||{};
+    const name=emp.name||'—', dept=emp.dept||'—', ld=fmtDate(emp.lastday);
+    const by=r.created_by_email||'—', upd=timeAgo(r.updated_at||r.created_at), st=r.status||'pending';
+    const sid=r.id.replace(/'/g,"\\'"), nm=name.replace(/'/g,"\\'");
+    return `<tr>
+      <td><span class="status-badge ${st}">${st==='complete'?'✓ Complete':'● Pending'}</span></td>
+      <td class="td-case">${r.case_id}</td>
+      <td class="td-name">${name}</td>
+      <td>${dept}</td>
+      <td class="td-mono">${ld}</td>
+      <td><div class="dash-prog"><div class="dash-prog-bar"><div class="dash-prog-fill" style="width:${pct}%"></div></div><span class="dash-pct">${pct}%</span></div></td>
+      <td class="td-small">${by}</td>
+      <td class="td-mono td-small">${upd}</td>
+      <td><button class="row-btn open" onclick="openChecklist('${sid}')">Open</button><button class="row-btn del" onclick="deleteCase('${sid}','${nm}')">Delete</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function applyFilter(s) {
+  filterSt=s;
+  document.querySelectorAll('.filter-tab').forEach(t=>t.classList.toggle('active',t.dataset.filter===s));
+  renderDash();
+}
+
+async function deleteCase(id,name) {
+  if(!confirm(`Permanently delete the checklist for "${name}"?\n\nThis cannot be undone.`)) return;
+  const {error}=await sb.from('checklists').delete().eq('id',id);
+  if(error) alert('Delete failed: '+error.message);
+  else loadDash();
+}
+
+// ═══════════════════════════════════════════════
+//  CHECKLIST — Navigation
+// ═══════════════════════════════════════════════
+function newChecklist() {
+  currentId=null;
+  clearForm();
+  document.getElementById('case-id-val').textContent=genCaseId();
+  document.getElementById('opened-at-val').textContent=nowStr();
+  document.getElementById('cl-sub').textContent='New Case';
+  document.getElementById('cl-modified-meta').textContent='';
+  document.getElementById('cl-card-meta').textContent='Saves to database on first change';
+  setSaveStatus('ready');
+  updateAllProgress();
+  showView('checklist');
+}
+
+async function openChecklist(id) {
+  showView('checklist');
+  setSaveStatus('loading');
+  const {data,error}=await sb.from('checklists').select('*').eq('id',id).single();
+  if(error){alert('Failed to load: '+error.message); showView('dash'); return;}
+  populate(data);
+}
+
+async function backToDash() {
+  if(currentId) await doSave(true);
+  showView('dash');
+  loadDash();
+}
+
+// ═══════════════════════════════════════════════
+//  CHECKLIST — Populate / Clear
+// ═══════════════════════════════════════════════
+function populate(row) {
+  currentId=row.id;
+  document.getElementById('case-id-val').textContent   = row.case_id||'';
+  document.getElementById('opened-at-val').textContent = row.created_at ? new Date(row.created_at).toLocaleString() : '';
+  document.getElementById('cl-sub').textContent        = row.employee?.name || 'Unnamed';
+  document.getElementById('cl-modified-meta').textContent =
+    row.last_modified_by_email ? `Last saved by ${row.last_modified_by_email} · ${timeAgo(row.updated_at)}` : '';
+  const emp=row.employee||{}, cby=row.completed_by||{}, checks=row.checks||{};
+  document.querySelectorAll('[data-emp]').forEach(el=>{ el.value=emp[el.dataset.emp]||''; });
+  document.querySelectorAll('[data-cby]').forEach(el=>{ el.value=cby[el.dataset.cby]||''; });
+  document.querySelectorAll('.item-cb').forEach(cb=>{
+    const id=cb.dataset.id, s=checks[id]||{};
+    cb.checked=!!s.checked;
+    const item=cb.closest('.ci'); if(s.checked) item.classList.add('done'); else item.classList.remove('done');
+    const tsEl=document.getElementById('ts-'+id), nEl=document.getElementById('notes-'+id);
+    const nrEl=document.getElementById('nr-'+id), nbEl=document.getElementById('nb-'+id);
+    if(tsEl) tsEl.textContent=s.ts||'';
+    if(nEl)  nEl.value=s.notes||'';
+    if(s.notesOpen||s.notes){ if(nrEl)nrEl.classList.add('open'); if(nbEl){nbEl.textContent='− note';nbEl.classList.add('active');} }
+    else                     { if(nrEl)nrEl.classList.remove('open'); if(nbEl){nbEl.textContent='+ note';nbEl.classList.remove('active');} }
+  });
+  updateAllProgress();
+  setSaveStatus('saved');
+}
+
+function clearForm() {
+  document.querySelectorAll('[data-emp]').forEach(el=>el.value='');
+  document.querySelectorAll('[data-cby]').forEach(el=>el.value='');
+  document.querySelectorAll('.sec-card.collapsed').forEach(c=>c.classList.remove('collapsed'));
+  document.querySelectorAll('.item-cb').forEach(cb=>{
+    const id=cb.dataset.id;
+    cb.checked=false; cb.closest('.ci').classList.remove('done');
+    const tsEl=document.getElementById('ts-'+id), nEl=document.getElementById('notes-'+id);
+    const nrEl=document.getElementById('nr-'+id), nbEl=document.getElementById('nb-'+id);
+    if(tsEl) tsEl.textContent=''; if(nEl) nEl.value='';
+    if(nrEl) nrEl.classList.remove('open');
+    if(nbEl){nbEl.textContent='+ note'; nbEl.classList.remove('active');}
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  CHECKLIST — Save
+// ═══════════════════════════════════════════════
+function collectData() {
+  const employee={}, completed_by={}, checks={};
+  document.querySelectorAll('[data-emp]').forEach(el=>employee[el.dataset.emp]=el.value);
+  document.querySelectorAll('[data-cby]').forEach(el=>completed_by[el.dataset.cby]=el.value);
+  document.querySelectorAll('.item-cb').forEach(cb=>{
+    const id=cb.dataset.id;
+    checks[id]={
+      checked: cb.checked,
+      ts:        document.getElementById('ts-'+id)?.textContent||'',
+      notes:     document.getElementById('notes-'+id)?.value||'',
+      notesOpen: document.getElementById('nr-'+id)?.classList.contains('open')||false
+    };
+  });
+  const progress=computeProgress();
+  return {employee, completed_by, checks, progress, status: progress.pct===100?'complete':'pending'};
+}
+
+function computeProgress() {
+  const sections=[['section-hr','hr'],['section-mgr','mgr'],['section-it','it']];
+  const p={hr:{},mgr:{},it:{},total:0,done:0,pct:0};
+  sections.forEach(([sid,dept])=>{
+    const card=document.getElementById(sid);
+    const done=card?.querySelectorAll('.item-cb:checked').length||0;
+    const total=card?.querySelectorAll('.item-cb').length||0;
+    p[dept]={done,total}; p.done+=done; p.total+=total;
+  });
+  p.pct=p.total?Math.round(p.done/p.total*100):0;
+  return p;
+}
+
+async function doSave(silent=false) {
+  if(!silent) setSaveStatus('saving');
+  const payload={
+    ...collectData(),
+    case_id: document.getElementById('case-id-val').textContent,
+    last_modified_by_email: currentUser?.email||''
+  };
+  let res;
+  if(currentId) {
+    res=await sb.from('checklists').update(payload).eq('id',currentId).select('id').single();
+  } else {
+    payload.created_by      =currentUser?.id;
+    payload.created_by_email=currentUser?.email||'';
+    res=await sb.from('checklists').insert(payload).select('id').single();
+    if(!res.error) currentId=res.data.id;
+  }
+  if(res.error){ if(!silent) setSaveStatus('error'); }
+  else {
+    if(!silent) setSaveStatus('saved');
+    document.getElementById('cl-modified-meta').textContent=`Last saved by ${currentUser?.email} · just now`;
+  }
+}
+
+function debouncedSave() {
+  setSaveStatus('saving');
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>doSave(),700);
+}
+
+// ═══════════════════════════════════════════════
+//  CHECKLIST — Interactions
+// ═══════════════════════════════════════════════
+function onCk(id) {
+  const cb=document.querySelector(`.item-cb[data-id="${id}"]`);
+  const item=cb.closest('.ci'), tsEl=document.getElementById('ts-'+id);
+  if(cb.checked){item.classList.add('done'); if(tsEl)tsEl.textContent=nowStr();}
+  else{item.classList.remove('done'); if(tsEl)tsEl.textContent='';}
+  updateAllProgress(); debouncedSave();
+}
+function tgl(id) {
+  const cb=document.querySelector(`.item-cb[data-id="${id}"]`);
+  if(cb){cb.checked=!cb.checked; onCk(id);}
+}
+function tglNote(id) {
+  const nr=document.getElementById('nr-'+id), nb=document.getElementById('nb-'+id);
+  if(nr.classList.contains('open')){nr.classList.remove('open');nb.classList.remove('active');nb.textContent='+ note';}
+  else{nr.classList.add('open');nb.classList.add('active');nb.textContent='− note';document.getElementById('notes-'+id)?.focus();}
+}
+function toggleSec(id) { document.getElementById(id).classList.toggle('collapsed'); }
+function onNameInput() { document.getElementById('cl-sub').textContent=document.querySelector('[data-emp="name"]')?.value||'New Case'; }
+
+// ═══════════════════════════════════════════════
+//  PROGRESS
+// ═══════════════════════════════════════════════
+function updateSection(sid,dept) {
+  const card=document.getElementById(sid);
+  const done=card?.querySelectorAll('.item-cb:checked').length||0;
+  const total=card?.querySelectorAll('.item-cb').length||0;
+  const pct=total?Math.round(done/total*100):0;
+  const fill=document.getElementById('fill-'+sid), txt=document.getElementById('prog-'+sid), stat=document.getElementById('stat-'+dept);
+  if(fill)fill.style.width=pct+'%'; if(txt)txt.textContent=`${done}/${total}`; if(stat)stat.textContent=`${done}/${total}`;
+  return{done,total};
+}
+function updateAllProgress() {
+  let td=0,tt=0;
+  [['section-hr','hr'],['section-mgr','mgr'],['section-it','it']].forEach(([sid,dept])=>{
+    const{done,total}=updateSection(sid,dept); td+=done; tt+=total;
+  });
+  const pct=tt?Math.round(td/tt*100):0;
+  document.getElementById('overall-fill').style.width=pct+'%';
+  document.getElementById('overall-txt').textContent=pct+'%';
+  const st=document.getElementById('stat-total'); if(st)st.textContent=`${td}/${tt}`;
+}
+
+// ═══════════════════════════════════════════════
+//  SAVE STATUS UI
+// ═══════════════════════════════════════════════
+function setSaveStatus(state) {
+  const dot=document.getElementById('save-dot'), lbl=document.getElementById('save-lbl'), retry=document.getElementById('save-retry');
+  if(!dot) return;
+  dot.className='save-dot'+(state?(' '+state):'');
+  retry.style.display=state==='error'?'inline':'none';
+  lbl.textContent={ready:'Ready',saving:'Saving…',saved:'Saved ✓',error:'Save failed',loading:'Loading…'}[state]||state;
+}
+
+// ═══════════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', async()=>{
+  if(SUPABASE_URL==='YOUR_SUPABASE_URL'){
+    document.getElementById('config-banner').style.display='block';
+    return;
+  }
+
+  // Auth state changes (sign in, sign out, password recovery)
+  sb.auth.onAuthStateChange(async(event,session)=>{
+    if(event==='PASSWORD_RECOVERY'){ showView('reset'); return; }
+    if(event==='SIGNED_IN'){ currentUser=session.user; }
+    if(event==='SIGNED_OUT'){ currentUser=null; currentId=null; showView('login'); }
+  });
+
+  // Auto-save when typing in checklist view
+  document.addEventListener('input',e=>{
+    if(!document.getElementById('view-checklist').classList.contains('active')) return;
+    if(e.target.matches('[data-emp],[data-cby],.note-ta')) debouncedSave();
+  });
+
+  // Check for existing session
+  const {data:{session}}=await sb.auth.getSession();
+  if(session){ currentUser=session.user; showView('dash'); loadDash(); }
+  else{ showView('login'); }
+});
+</script>
+</body>
+</html>
