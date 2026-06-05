@@ -848,7 +848,7 @@ window.addEventListener('DOMContentLoaded', async()=>{
   // Auth state changes (sign in, sign out, password recovery)
   sb.auth.onAuthStateChange(async(event,session)=>{
     if(event==='PASSWORD_RECOVERY'){ showView('reset'); return; }
-    if(event==='SIGNED_IN'){ currentUser=session.user; }
+    if(event==='SIGNED_IN'){ currentUser=session.user; showView('dash'); loadDash(); }
     if(event==='SIGNED_OUT'){ currentUser=null; currentId=null; showView('login'); }
   });
 
